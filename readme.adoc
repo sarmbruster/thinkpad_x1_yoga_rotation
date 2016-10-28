@@ -1,0 +1,17 @@
+# auto screen rotation on a Thinkpad X1 Yoga
+
+The Thinkpad X1 Yoga is a convertible laptop, so you can flip the screen over and your laptop is now a tablet.
+
+Tablets are typically used in different orientations. To detect orientation it is supplied with a BMA 150 accelerometer.
+
+Since version 4.9-rc2 linux kernel contains patches for this device so it works nicely with iio-sensor-proxy[https://github.com/hadess/iio-sensor-proxy]
+
+This project provides a script dealing with automatic screen rotation to follow the values from the accelerometer.
+
+## rotate.py
+
+This python script listens to dbus signals from sensor proxy and checks if orientation has changed. In case of a change event the display is rotated approriately using `xrandr`. The X1 Yoga has 3 wacom devices: finger touch, pen stylus and pen eraser. For all of them rotation is adoption appriately.
+
+## tbd
+
+[ ] script for disabling touchpad and trackpoint if device is in tablet mode
