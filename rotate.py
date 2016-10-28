@@ -43,9 +43,9 @@ def handler(source, changedProperties, invalidatedProperties, **kwargs):
 		if 'AccelerometerOrientation' in changedProperties:
 			orientation = changedProperties['AccelerometerOrientation']
 
-			print subprocess.call(["xrandr", "-o", xrandr_orientation_map[orientation]])
+			subprocess.call(["xrandr", "-o", xrandr_orientation_map[orientation]])
 			for device in wacom:
-				print subprocess.call(["xsetwacom", "set", device, "rotate", wacom_orientation_map[orientation]])
+				subprocess.call(["xsetwacom", "set", device, "rotate", wacom_orientation_map[orientation]])
 
 props.connect_to_signal('PropertiesChanged', handler, sender_keyword='sender')
 iface.ClaimAccelerometer()
