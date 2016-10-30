@@ -7,13 +7,14 @@ Usage:
 Options:
     -h,--help        display help message
     --version        display version and exit
-    --nogui          non-GUI mode
-    --debugpassive   display commands without executing
 """
 
-import dbus, sys, time, subprocess, socket, logging, docopt, multiprocessing, io
+import dbus, sys, time, subprocess, socket, logging, docopt, multiprocessing, io, os, signal
 from gi.repository import GLib
 from dbus.mainloop.glib import DBusGMainLoop
+
+name    = "thinkpad_x1_yoga_rotation"
+version = "0.9-SNAPSHOT"
 
 # map sensor-proxy orientation to xrandr and wacom
 # there seems to be a bug:
@@ -53,25 +54,36 @@ def monitor_acpi_events():
     socketACPI = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     socketACPI.connect("/var/run/acpid.socket")
 
-    lines = subprocess.check_output(['xinput','--list', '--name-only']).decode().split('\n')
-    touch_and_track = filter(lambda x: "TrackPoint" in x or "TouchPad" in x, lines) 
+    lines = subprocess.check_output(['xinput','--list', '--name-only']).split(b'\n')
+    touch_and_track = [x.decode() for x in lines if b"TrackPoint" in x or b"TouchPad" in x]
     log.info("found touchpad and trackpoints %s", touch_and_track)
 
     is_laptop_mode = True
     log.info("connected to acpi socket %s", socket)
+    onboard_pid = None
     while True:
         event = socketACPI.recv(4096)
         log.debug("catching acpi event %s", event) 
         #eventACPIDisplayPositionChange = "ibm/hotkey LEN0068:00 00000080 000060c0\n"
-        eventACPIDisplayPositionChange = " PNP0C14:03 000000b0 00000000\n"
+        eventACPIDisplayPositionChange = b" PNP0C14:03 000000b0 00000000\n"
         if event == eventACPIDisplayPositionChange:
             is_laptop_mode = not is_laptop_mode
             log.info("display position change detected, laptop mode %s", is_laptop_mode)
-
-            for x in touch_and_track:
-                cmd_and_log(["xinput", "set-prop", x, "Device Enabled", str(int(is_laptop_mode))])
-#                cmd_and_log(["xinput", "--{}".format("enable" if is_laptop_mode else "disable"), x])
-
+            if is_laptop_mode:
+                for x in touch_and_track:
+                    cmd_and_log(["xinput", "--enable", x])
+                if onboard_pid:
+                    os.kill(onboard_pid, signal.SIGTERM)
+            else:
+                for x in touch_and_track:
+                    cmd_and_log(["xinput", "--disable", x])
+                p = subprocess.Popen(['nohup', 'onboard'],
+                    stdout=open('/dev/null', 'w'),
+                    #stderr=open('logfile.log', 'a'),
+                    preexec_fn=os.setpgrp
+                ) 
+                onboard_pid = p.pid
+                log.info("started onboard with pid %s", onboard_pid)
         time.sleep(0.3)
 
 def monitor_stylus_proximity():
@@ -94,15 +106,13 @@ def main(options):
     log        = logging.getLogger()
     logHandler = logging.StreamHandler()
     log.addHandler(logHandler)
-    #logHandler.setFormatter(logging.Formatter("%(message)s"))
     logHandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     log.level  = logging.INFO
 
     # load wacom devices 
-    lines = subprocess.check_output(['xsetwacom','--list', 'devices']).decode().split('\n')
-    lines = filter(lambda x: x, lines) # get rid of empty line at the end
+    lines = subprocess.check_output(['xsetwacom','--list', 'devices']).split(b'\n')
     global wacom 
-    wacom = map(lambda x: x.split('\t')[0], lines)
+    wacom = [ x.decode().split('\t')[0] for x in lines if x]
     log.info("detected wacom devices: %s", wacom)
 
     # listen for ACPI events to detect switching between laptop/tablet mode
