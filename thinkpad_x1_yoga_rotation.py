@@ -55,7 +55,9 @@ def monitor_acpi_events():
     socketACPI.connect("/var/run/acpid.socket")
 
     lines = subprocess.check_output(['xinput','--list', '--name-only']).split(b'\n')
-    touch_and_track = [x.decode() for x in lines if b"TrackPoint" in x or b"TouchPad" in x]
+    #touch_and_track = [x.decode() for x in lines if b"TrackPoint" in x or b"TouchPad" in x]
+    # it's crucial to have trackpoints first in this list. Otherwise enabling/disabling doesn't work as expected and touchpad just stays enabled always
+    touch_and_track = [x.decode() for x in lines if b"TrackPoint" in x] + [x.decode() for x in lines if b"TouchPad" in x]
     log.info("found touchpad and trackpoints %s", touch_and_track)
 
     is_laptop_mode = True
@@ -72,11 +74,14 @@ def monitor_acpi_events():
             if is_laptop_mode:
                 for x in touch_and_track:
                     cmd_and_log(["xinput", "--enable", x])
+                log.info("onboard pid %s", onboard_pid)
                 if onboard_pid:
+                    log.info("stopping onboard")
                     os.kill(onboard_pid, signal.SIGTERM)
             else:
                 for x in touch_and_track:
                     cmd_and_log(["xinput", "--disable", x])
+                #subprocess.call(["xinput", "--disable", "SynPS/2 Synaptics TouchPad"])
                 p = subprocess.Popen(['nohup', 'onboard'],
                     stdout=open('/dev/null', 'w'),
                     #stderr=open('logfile.log', 'a'),
