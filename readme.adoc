@@ -32,3 +32,8 @@ Now rotate your display by 90 degrees and screen orientation should follow.
 ### setup autostart
 
 On Ubuntu open "Startup Applications" ("Startprogramme" in German) and add a startup application using the full path to `thinkpad_x1_yoga_rotation.py`.
+
+## References/Kudos
+
+* https://classicforum.manjaro.org/index.php?topic=9671.0
+* https://github.com/wdbm/spin
