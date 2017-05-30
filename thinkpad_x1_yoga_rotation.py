@@ -23,17 +23,17 @@ version = "0.9-SNAPSHOT"
 # 'bottom-up' for 90 right
 # 'left-up' for 180
 xrandr_orientation_map = {
-    'right-up': 'normal',
-    'normal' : 'right',
-    'bottom-up': 'left',
-    'left-up': 'inverted'
+    'right-up': 'right',
+    'normal' : 'normal',
+    'bottom-up': 'inverted',
+    'left-up': 'left'
 }
 
 wacom_orientation_map = {
-    'right-up': 'none',
-    'normal' : 'cw',
-    'bottom-up': 'ccw',
-    'left-up': 'half'
+    'right-up': 'cw',
+    'normal' : 'none',
+    'bottom-up': 'half',
+    'left-up': 'ccw'
 }
 
 def cmd_and_log(cmd):
@@ -73,14 +73,14 @@ def monitor_acpi_events():
             log.info("display position change detected, laptop mode %s", is_laptop_mode)
             if is_laptop_mode:
                 for x in touch_and_track:
-                    cmd_and_log(["xinput", "--enable", x])
+                    cmd_and_log(["xinput", "enable", x])
                 log.info("onboard pid %s", onboard_pid)
                 if onboard_pid:
                     log.info("stopping onboard")
                     os.kill(onboard_pid, signal.SIGTERM)
             else:
                 for x in touch_and_track:
-                    cmd_and_log(["xinput", "--disable", x])
+                    cmd_and_log(["xinput", "disable", x])
                 #subprocess.call(["xinput", "--disable", "SynPS/2 Synaptics TouchPad"])
                 p = subprocess.Popen(['nohup', 'onboard'],
                     stdout=open('/dev/null', 'w'),
