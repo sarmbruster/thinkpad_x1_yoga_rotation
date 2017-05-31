@@ -2,15 +2,16 @@
 
 The Thinkpad X1 Yoga is a convertible laptop, so you can flip the screen over and your laptop is now a tablet. Tablets are typically used in different orientations. To detect orientation it is supplied with a BMA 150 accelerometer.
 
-Since version 4.9-rc2 linux kernel contains patches for this device so it works nicely with https://github.com/hadess/iio-sensor-proxy[iio-sensor-proxy]
+Since version 4.9-rc2 linux kernel contains patches for this device so it works nicely with https://github.com/hadess/iio-sensor-proxy[iio-sensor-proxy]. It seems that Kernel 4.10 has an issue with this which was resolved in Kernel 4.11.
 
 This project provides a script dealing with automatic screen rotation and some other tablet/laptop convenience features.
 
+So far, I've tested it with Ubuntu 17.04 and appreciate any feedback.
+
 ## prerequisites
 
-* Linux kernel >= 4.9-rc2
-* https://github.com/hadess/iio-sensor-proxy[iio-sensor-proxy]
-* linux packages python3, python3-dbus, python3-gi, onboard
+* Linux kernel 4.9-rc2 or >= 4.11
+* linux packages python3, python3-dbus, python3-gi, onboard, iio-sensor-proxy
 
 ## installation and usage
 
@@ -19,6 +20,7 @@ This python script link:thinkpad_x1_yoga_rotation.py[thinkpad_x1_yoga_rotation.p
 * Listen to dbus signals from sensor proxy and check if display orientation has changed. In case of a change event the display is rotated approriately using `xrandr`. The X1 Yoga has 3 wacom devices: finger touch, pen stylus and pen eraser. For all of them rotation is adoption appriately.
 * When the laptop is converted to tablet mode touchpad and trackpoint are switched off and a onboard keyboard is started. When going back to laptop mode the orginal state is restored.
 * disable finger touch if stylus is close to the display
+* upon termination, restore "normal" screen orientation, switch on touchpad and trackpoint
 
 ### usage
 
