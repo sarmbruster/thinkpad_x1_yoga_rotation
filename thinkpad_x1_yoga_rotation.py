@@ -9,7 +9,7 @@ Options:
     --version        display version and exit
 """
 
-import dbus, sys, time, subprocess, socket, logging, docopt, multiprocessing, io, os, signal
+import dbus, sys, time, subprocess, socket, logging, docopt, multiprocessing, io, os, signal, atexit
 from gi.repository import GLib
 from dbus.mainloop.glib import DBusGMainLoop
 
@@ -17,11 +17,6 @@ name    = "thinkpad_x1_yoga_rotation"
 version = "0.9-SNAPSHOT"
 
 # map sensor-proxy orientation to xrandr and wacom
-# there seems to be a bug:
-# 'right-up' when laptop has normal orientation
-# 'normal' for 90 left
-# 'bottom-up' for 90 right
-# 'left-up' for 180
 xrandr_orientation_map = {
     'right-up': 'right',
     'normal' : 'normal',
@@ -47,18 +42,12 @@ def sensor_proxy_signal_handler(source, changedProperties, invalidatedProperties
             log.info("dbus signal indicates orientation change to %s", orientation)
             subprocess.call(["xrandr", "-o", xrandr_orientation_map[orientation]])
             for device in wacom:
-                cmd_and_log(["xsetwacom", "set", device, "rotate", wacom_orientation_map[orientation]])
+                cmd_and_log(["xsetwacom", "--set", device, "rotate", wacom_orientation_map[orientation]])
 
 # toggle trackpoint and touchpad when changing from laptop to tablet mode anc vice versa
-def monitor_acpi_events():
+def monitor_acpi_events(touch_and_track):
     socketACPI = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     socketACPI.connect("/var/run/acpid.socket")
-
-    lines = subprocess.check_output(['xinput','--list', '--name-only']).split(b'\n')
-    #touch_and_track = [x.decode() for x in lines if b"TrackPoint" in x or b"TouchPad" in x]
-    # it's crucial to have trackpoints first in this list. Otherwise enabling/disabling doesn't work as expected and touchpad just stays enabled always
-    touch_and_track = [x.decode() for x in lines if b"TrackPoint" in x] + [x.decode() for x in lines if b"TouchPad" in x]
-    log.info("found touchpad and trackpoints %s", touch_and_track)
 
     is_laptop_mode = True
     log.info("connected to acpi socket %s", socket)
@@ -91,18 +80,20 @@ def monitor_acpi_events():
                 log.info("started onboard with pid %s", onboard_pid)
         time.sleep(0.3)
 
-def monitor_stylus_proximity():
-    lines = subprocess.check_output(['xinput','--list', '--name-only']).decode().split('\n')
-    stylus = next(x for x in lines if "stylus" in x)
-    log.info("found stylus %s", stylus)
-    finger_touch = next(x for x in lines if "Finger touch" in x)
-    log.info("found finger touch %s", finger_touch)
+def monitor_stylus_proximity(stylus):
     out = subprocess.Popen(["xinput", "test", "-proximity", stylus], stdout=subprocess.PIPE)
     for line in out.stdout:
         if (line.startswith(b'proximity')):
             log.debug(line)
             status = line.split(b' ')[1]
-            cmd_and_log(["xinput", "--disable" if status==b'in' else "--enable", finger_touch])
+            cmd_and_log(["xinput", "disable" if status==b'in' else "enable", finger_touch])
+
+def cleanup(touch_and_track, wacom):
+    subprocess.call(["xrandr", "-o", "normal"])
+    for x in touch_and_track:
+        cmd_and_log(["xinput", "enable", x])
+    for device in wacom:
+        cmd_and_log(["xsetwacom", "--set", device, "rotate", "none"])
 
 def main(options):
 
@@ -116,16 +107,32 @@ def main(options):
 
     # load wacom devices 
     lines = subprocess.check_output(['xsetwacom','--list', 'devices']).split(b'\n')
-    global wacom 
+
+    global wacom
     wacom = [ x.decode().split('\t')[0] for x in lines if x]
     log.info("detected wacom devices: %s", wacom)
 
+    # load stylus touchpad trackpoint devices
+    lines = subprocess.check_output(['xinput','--list', '--name-only']).decode().split('\n')
+
+    stylus = next(x for x in lines if "stylus" in x)
+    log.info("found stylus %s", stylus)
+
+    finger_touch = next(x for x in lines if "Finger touch" in x)
+    log.info("found finger touch %s", finger_touch)
+
+    # it's crucial to have trackpoints first in this list. Otherwise enabling/disabling doesn't work as expected and touchpad just stays enabled always
+    touch_and_track = [x for x in lines if "TrackPoint" in x] + [x for x in lines if "TouchPad" in x]
+    log.info("found touchpad and trackpoints %s", touch_and_track)
+
     # listen for ACPI events to detect switching between laptop/tablet mode
-    acpi_process = multiprocessing.Process(target = monitor_acpi_events)
+    acpi_process = multiprocessing.Process(target = monitor_acpi_events, args=(touch_and_track,))
     acpi_process.start()
 
-    proximity_process = multiprocessing.Process(target = monitor_stylus_proximity)
+    proximity_process = multiprocessing.Process(target = monitor_stylus_proximity, args=(stylus,))
     proximity_process.start()
+
+    atexit.register(cleanup, touch_and_track, wacom)
 
     # init dbus stuff and subscribe to events
     DBusGMainLoop(set_as_default=True)
