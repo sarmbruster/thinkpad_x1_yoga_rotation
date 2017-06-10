@@ -80,7 +80,7 @@ def monitor_acpi_events(touch_and_track):
                 log.info("started onboard with pid %s", onboard_pid)
         time.sleep(0.3)
 
-def monitor_stylus_proximity(stylus):
+def monitor_stylus_proximity(stylus, finger_touch):
     out = subprocess.Popen(["xinput", "test", "-proximity", stylus], stdout=subprocess.PIPE)
     for line in out.stdout:
         if (line.startswith(b'proximity')):
@@ -129,7 +129,7 @@ def main(options):
     acpi_process = multiprocessing.Process(target = monitor_acpi_events, args=(touch_and_track,))
     acpi_process.start()
 
-    proximity_process = multiprocessing.Process(target = monitor_stylus_proximity, args=(stylus,))
+    proximity_process = multiprocessing.Process(target = monitor_stylus_proximity, args=(stylus, finger_touch))
     proximity_process.start()
 
     atexit.register(cleanup, touch_and_track, wacom)
