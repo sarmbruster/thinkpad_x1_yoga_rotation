@@ -2,7 +2,7 @@
 
 """
 Usage:
-    rotate.py [options]
+    thinkpad_x1_yoga_rotation.py [options]
 
 Options:
     -h,--help        display help message
@@ -109,20 +109,20 @@ def main(options):
     lines = subprocess.check_output(['xsetwacom','--list', 'devices']).split(b'\n')
 
     global wacom
-    wacom = [ x.decode().split('\t')[0] for x in lines if x]
+    wacom = [x.decode().split('\t')[0].strip() for x in lines if x]
     log.info("detected wacom devices: %s", wacom)
 
     # load stylus touchpad trackpoint devices
     lines = subprocess.check_output(['xinput','--list', '--name-only']).decode().split('\n')
 
-    stylus = next(x for x in lines if "stylus" in x)
+    stylus = next(x.strip() for x in lines if "stylus" in x)
     log.info("found stylus %s", stylus)
 
-    finger_touch = next(x for x in lines if "Finger touch" in x)
+    finger_touch = next(x.strip() for x in lines if "Finger touch" in x)
     log.info("found finger touch %s", finger_touch)
 
     # it's crucial to have trackpoints first in this list. Otherwise enabling/disabling doesn't work as expected and touchpad just stays enabled always
-    touch_and_track = [x for x in lines if "TrackPoint" in x] + [x for x in lines if "TouchPad" in x]
+    touch_and_track = [x.strip() for x in lines if "TrackPoint" in x] + [x.strip() for x in lines if "TouchPad" in x]
     log.info("found touchpad and trackpoints %s", touch_and_track)
 
     # listen for ACPI events to detect switching between laptop/tablet mode
@@ -142,7 +142,6 @@ def main(options):
     props.connect_to_signal('PropertiesChanged', sensor_proxy_signal_handler, sender_keyword='sender')
     iface = dbus.Interface(proxy, 'net.hadess.SensorProxy')
     iface.ClaimAccelerometer()
-    #iface.ClaimLight()
 
     loop = GLib.MainLoop()
     loop.run()
